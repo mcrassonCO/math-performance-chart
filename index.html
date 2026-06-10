@@ -1,1 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2025 NYS Math Test Analysis</title>
+    <!-- Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & Render Engines -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <!-- Babel compiler to read React syntax dynamically -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Recharts dependencies and library bundle -->
+    <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+    <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+</head>
+<body class="bg-slate-50 min-h-screen font-sans m-0 p-0">
+    <div id="root"></div>
 
+    <script type="text/babel">
+        const { useState, useMemo, useEffect, useRef } = React;
+        const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } = Recharts;
+
+        // Custom styling variables
+        const DISTRICT_COLORS = {
+            'Scarsdale': '#5C061C',       
+            'Blind Brook-Rye': '#ea580c', 
+            'Bronxville': '#16a34a',      
+            'Edgemont': '#dc2626',        
+            'Chappaqua': '#9333ea',       
+            'Byram Hills': '#0891b2',     
+            'Rye City': '#ca8a04'         
+        };
+
+        const rawData = [
+            { Grade: 3, District: 'Scarsdale', Percent: 56.8 },
+            { Grade: 3, District: 'Blind Brook-Rye', Percent: 50.0 },
+            { Grade: 3, District: 'Bronxville', Percent: 48.6 },
+            { Grade: 3, District: 'Edgemont', Percent: 43.3 },
+            { Grade: 3, District: 'Chappaqua', Percent: 34.5 },
+            { Grade: 3, District: 'Byram Hills', Percent: 32.6 },
+            { Grade: 3, District: 'Rye City', Percent: 26.4 },
+            { Grade: 4, District: 'Scarsdale', Percent: 53.8 },
+            { Grade: 4, District: 'Bronxville', Percent: 48.7 },
+            { Grade: 4, District: 'Chappaqua', Percent: 48.5 },
+            { Grade: 4, District: 'Edgemont', Percent: 43.5 },
+            { Grade: 4, District: 'Byram Hills', Percent: 43.4 },
+            { Grade: 4, District: 'Blind Brook-Rye', Percent: 41.9 },
+            { Grade: 4, District: 'Rye City', Percent: 38.3 },
+            { Grade: 5, District: 'Scarsdale', Percent: 58.9 },
+            { Grade: 5, District: 'Byram Hills', Percent: 51.5 },
+            { Grade: 5, District: 'Chappaqua', Percent: 50.4 },
+            { Grade: 5, District: 'Edgemont', Percent: 48.7 },
+            { Grade: 5, District: 'Bronxville', Percent: 45.7 },
+            { Grade: 5, District: 'Rye City', Percent: 43.0 },
+            { Grade: 5, District: 'Blind Brook-Rye', Percent: 37.0 },
+            { Grade: 6, District: 'Chappaqua', Percent: 61.1 },
+            { Grade: 6, District: 'Scarsdale', Percent: 42.0 },
+            { Grade: 6, District: 'Byram Hills', Percent: 41.4 },
+            { Grade: 6, District: 'Edgemont', Percent: 41.2 },
+            { Grade: 6, District: 'Blind Brook-Rye', Percent: 37.5 },
+            { Grade: 6, District: 'Bronxville', Percent: 32.1 },
+            { Grade: 6, District: 'Rye City', Percent: 26.4 }
+        ];
+
+        const CustomTooltip = ({ active, payload }) => {
+            if (active && payload && payload.length) {
+                const data = payload[0].payload;
+                if (data.isSpacer) return null;
+                const isScarsdale = data.district === 'Scarsdale';
+                return (
+                    <div className="bg-white p-4 border border-slate-200 rounded shadow-lg text-sm">
+                        <p className="font-bold text-slate-800 mb-2 border-b pb-1">Grade {data.grade}</p>
+                        <p className="flex items-center gap-2">
+                            <span className="w-3 h-3 rounded-full inline-block" style={{ 
+                                backgroundColor: isScarsdale ? DISTRICT_COLORS['Scarsdale'] : 'transparent',
+                                border: `2px solid ${DISTRICT_COLORS[data.district]}`
+                            }}></span>
+                            <span className="font-semibold text-slate-700">{data.district}:</span> 
+                            <span className="text-slate-900">{data.percent}%</span>
+                        </p>
+                    </div>
+                );
+            }
+            return null;
+        };
+
+        function App() {
+            const [selectedGrades, setSelectedGrades] = useState({ 3: true, 4: true, 5: true, 6: false });
+            const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+            const dropdownRef = useRef(null);
+
+            useEffect(() => {
+                function handleClickOutside(event) {
+                    if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                        setIsDropdownOpen(false);
+                    }
+                }
+                document.addEventListener('mousedown', handleClickOutside);
+                return () => document.removeEventListener('mousedown', handleClickOutside);
+            }, []);
+
+            const toggleGrade = (grade) => {
+                setSelectedGrades(prev => ({ ...prev, [grade]: !prev[grade] }));
+            };
+
+            const activeGradesList = Object.keys(selectedGrades)
+                .filter(g => selectedGrades[g])
+                .map(Number)
+                .sort();
+
+            const processedData = useMemo(() => {
+                const chartData = [];
+                activeGradesList.forEach((grade, index) => {
+                    const gradeData = rawData.filter(d => d.Grade === grade);
+                    gradeData.sort((a, b) => b.Percent - a.Percent);
+                    
+                    if (index !== 0) {
+                        chartData.push({
+                            name: `spacer-${grade}`,
+                            isSpacer: true,
+                            grade: grade,
+                            district: 'Spacer',
+                            percent: 0,
+                        });
+                    }
+
+                    gradeData.forEach((item) => {
+                        chartData.push({
+                            name: `G${grade}-${item.District}`, 
+                            grade: grade,
+                            district: item.District,
+                            percent: item.Percent,
+                            isSpacer: false,
+                        });
+                    });
+                });
+                return chartData;
+            }, [activeGradesList]);
+
+            const centerTicks = useMemo(() => {
+                const ticks = [];
+                activeGradesList.forEach(grade => {
+                    const gradeItems = processedData.filter(d => d.grade === grade && !d.isSpacer);
+                    if (gradeItems.length > 0) {
+                        const middleItem = gradeItems[Math.floor(gradeItems.length / 2)];
+                        ticks.push(middleItem.name);
+                    }
+                });
+                return ticks;
+            }, [processedData, activeGradesList]);
+
+            const CustomSidewaysLabel = (props) => {
+                const { x, y, width, value, index } = props;
+                if (!value || value === 0) return null;
+                const entry = processedData[index];
+                if (!entry || entry.isSpacer) return null;
+
+                const isScarsdale = entry.district === 'Scarsdale';
+                const districtColor = DISTRICT_COLORS[entry.district] || '#475569';
+                const cx = x + width / 2;
+                const cy = y + 12;
+
+                return (
+                    <g transform={`translate(${cx}, ${cy})`}>
+                        <text
+                            x={0}
+                            y={0}
+                            transform="rotate(90)"
+                            textAnchor="start"
+                            dominantBaseline="middle"
+                            fill={isScarsdale ? '#ffffff' : districtColor}
+                            style={{ fontSize: '13px', fontWeight: 400, letterSpacing: '0.025em' }}
+                        >
+                            {value.toFixed(1)}%
+                        </text>
+                    </g>
+                );
+            };
+
+            const dropdownLabel = useMemo(() => {
+                if (activeGradesList.length === 4) return 'All Grades';
+                if (activeGradesList.length === 0) return 'No Grades Selected';
+                return `Grades: ${activeGradesList.join(', ')}`;
+            }, [activeGradesList]);
+
+            return (
+                <div className="p-4 md:p-8 flex flex-col items-center justify-center min-h-screen">
+                    <div className="w-full max-w-7xl bg-white rounded-xl shadow-xl overflow-hidden border border-slate-100 flex flex-col justify-between">
+                        
+                        {/* Header Container */}
+                        <div className="p-6 md:p-8 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white relative z-50">
+                            <div>
+                                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-3">
+                                    <span className="inline-block w-4 h-8 bg-[#5C061C] rounded-sm"></span>
+                                    2025 NYS Math Test
+                                </h1>
+                                <p className="text-slate-600 text-base md:text-lg font-medium mt-1">
+                                    percentage of students scoring Level 4
+                                </p>
+                            </div>
+
+                            {/* Pull-down Filter Element */}
+                            <div className="relative align-middle self-start sm:self-center" ref={dropdownRef}>
+                                <button 
+                                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                                    className="flex items-center gap-3 bg-white border border-slate-200 px-4 py-2.5 rounded-lg shadow-sm hover:bg-slate-50 transition-all text-sm font-semibold text-slate-700 min-w-[180px] justify-between focus:outline-none focus:border-slate-400"
+                                >
+                                    <span>{dropdownLabel}</span>
+                                    <svg className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+
+                                {isDropdownOpen && (
+                                    <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-100 rounded-xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                                        {[3, 4, 5, 6].map(grade => (
+                                            <label key={grade} className="flex items-center px-4 py-2.5 hover:bg-slate-50 cursor-pointer transition-colors text-sm font-medium text-slate-700">
+                                                <input 
+                                                    type="checkbox"
+                                                    checked={selectedGrades[grade]}
+                                                    onChange={() => toggleGrade(grade)}
+                                                    className="w-4 h-4 rounded text-[#5C061C] border-slate-300 focus:ring-[#5C061C] accent-[#5C061C] mr-3"
+                                                />
+                                                Grade {grade}
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Visualization Output */}
+                        <div className="p-4 md:p-6 w-full h-[60vh] min-h-[500px] relative">
+                            {activeGradesList.length === 0 ? (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50/50 backdrop-blur-sm z-10 p-4 text-center">
+                                    <p className="text-slate-500 font-medium text-lg">No data to display</p>
+                                    <p className="text-slate-400 text-sm mt-1">Please select at least one Grade level from the dropdown filter menu.</p>
+                                </div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={processedData} margin={{ top: 25, right: 30, left: 20, bottom: 40 }} barCategoryGap="12%">
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                        <XAxis 
+                                            dataKey="name" 
+                                            ticks={centerTicks}
+                                            tickFormatter={(tickName) => {
+                                                const match = tickName.match(/^G(\d+)-/);
+                                                return match ? `Grade ${match[1]}` : '';
+                                            }}
+                                            axisLine={{ stroke: '#cbd5e1' }}
+                                            tickLine={false}
+                                            tick={{ fill: '#334155', fontSize: 14, fontWeight: 700 }}
+                                            dy={12}
+                                        />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(val) => `${val}%`} domain={[0, 70]} />
+                                        <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc' }} />
+                                        <Bar dataKey="percent" radius={[4, 4, 0, 0]} isAnimationActive={false}>
+                                            {processedData.map((entry, index) => {
+                                                if (entry.isSpacer) return <Cell key={`cell-${index}`} fill="transparent" stroke="transparent" />;
+                                                const isScarsdale = entry.district === 'Scarsdale';
+                                                return (
+                                                    <Cell 
+                                                        key={`cell-${index}`} 
+                                                        fill={isScarsdale ? DISTRICT_COLORS['Scarsdale'] : 'transparent'} 
+                                                        stroke={DISTRICT_COLORS[entry.district]}
+                                                        strokeWidth={2}
+                                                    />
+                                                );
+                                            })}
+                                            <LabelList dataKey="percent" content={<CustomSidewaysLabel />} />
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            )}
+                        </div>
+
+                        {/* Bottom Legend Panels */}
+                        <div className="p-6 bg-slate-50 border-t border-slate-100 flex flex-wrap justify-center gap-4 md:gap-6">
+                            {Object.entries(DISTRICT_COLORS).map(([district, color]) => {
+                                const isScarsdale = district === 'Scarsdale';
+                                return (
+                                    <div key={district} className="flex items-center gap-2">
+                                        <div className="w-4 h-4 rounded shadow-sm" style={{ 
+                                            backgroundColor: isScarsdale ? color : 'transparent',
+                                            border: `2px solid ${color}`,
+                                        }}></div>
+                                        <span className={`text-sm font-semibold ${isScarsdale ? 'text-slate-900 font-bold' : 'text-slate-600'}`}>
+                                            {district}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
